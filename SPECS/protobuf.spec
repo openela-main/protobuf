@@ -2,6 +2,8 @@
 %bcond_without python
 # Build -java subpackage
 %bcond_with java
+# Build -emacs subpackage
+%bcond_without emacs
 
 #global rcver rc2
 # Disable LTO to work around annobin error messages
@@ -10,7 +12,7 @@
 Summary:        Protocol Buffers - Google's data interchange format
 Name:           protobuf
 Version:        3.14.0
-Release:        13%{?dist}
+Release:        16%{?dist}
 License:        BSD
 URL:            https://github.com/protocolbuffers/protobuf
 Source:         https://github.com/protocolbuffers/protobuf/archive/v%{version}%{?rcver}/%{name}-%{version}%{?rcver}-all.tar.gz
@@ -27,11 +29,17 @@ Patch1:         protobuf-3.14-disable-IoTest.LargeOutput.patch
 # Based on https://github.com/protocolbuffers/protobuf/commit/af95001202a035d78ff997e737bd67fca22ab32a
 # As described in https://bugzilla.suse.com/show_bug.cgi?id=1195258
 Patch2:         CVE-2021-22570.patch
+# Fix for CVE-2022-1941 "protobuf: message parsing vulnerability in ProtocolBuffers"
+# https://issues.redhat.com/browse/RHEL-40872
+# Based on https://github.com/protocolbuffers/protobuf/pull/10542.patch
+Patch3:         CVE-2022-1941.patch
 
 BuildRequires:  make
 BuildRequires:  autoconf
 BuildRequires:  automake
+%if %{with emacs}
 BuildRequires:  emacs
+%endif
 BuildRequires:  gcc-c++
 BuildRequires:  libtool
 BuildRequires:  pkgconfig
@@ -196,6 +204,7 @@ Protocol Buffer BOM POM.
 
 %endif
 
+%if %{with emacs}
 %package emacs
 Summary:        Emacs mode for Google Protocol Buffers descriptions
 BuildArch:      noarch
@@ -205,13 +214,15 @@ Obsoletes:      protobuf-emacs-el < 3.6.1-4
 %description emacs
 This package contains syntax highlighting for Google Protocol Buffers
 descriptions in the Emacs editor.
+%endif
 
 %prep
 %setup -q -n %{name}-%{version}%{?rcver} -a 3
 # IoTest.LargeOutput fails sometimes if not enough memory is available
 # https://github.com/protocolbuffers/protobuf/issues/8082
-%patch1 -p1
-%patch2 -p1
+%patch -P 1 -p1
+%patch -P 2 -p1
+%patch -P 3 -p1
 mv googletest-5ec7f0c4a113e2f18ac2c6cc7df51ad6afc24081/* third_party/googletest/
 find -name \*.cc -o -name \*.h | xargs chmod -x
 chmod 644 examples/*
@@ -276,7 +287,9 @@ export MAVEN_OPTS=-Xmx1024m
 %mvn_build -s -- -f java/pom.xml
 %endif
 
+%if %{with emacs}
 %{_emacs_bytecompile} editors/protobuf-mode.el
+%endif
 
 
 %check
@@ -286,7 +299,7 @@ fail=0
 %else
 fail=1
 %endif
-%make_build check CXXFLAGS="%{build_cxxflags} -Wno-error=type-limits" || exit $fail
+%make_build check CXXFLAGS="%{build_cxxflags} -Wno-error=type-limits -Wno-error=deprecated-declarations" || exit $fail
 
 
 %install
@@ -307,11 +320,13 @@ install -p -m 644 -D editors/proto.vim %{buildroot}%{_datadir}/vim/vimfiles/synt
 %mvn_install
 %endif
 
+%if %{with emacs}
 mkdir -p %{buildroot}%{_emacs_sitelispdir}/%{name}
 install -p -m 0644 editors/protobuf-mode.el %{buildroot}%{_emacs_sitelispdir}/%{name}
 install -p -m 0644 editors/protobuf-mode.elc %{buildroot}%{_emacs_sitelispdir}/%{name}
 mkdir -p %{buildroot}%{_emacs_sitestartdir}
 install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
+%endif
 
 %ldconfig_scriptlets
 %ldconfig_scriptlets lite
@@ -336,9 +351,11 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
 %{_libdir}/pkgconfig/protobuf.pc
 %doc examples/add_person.cc examples/addressbook.proto examples/list_people.cc examples/Makefile examples/README.md
 
+%if %{with emacs}
 %files emacs
 %{_emacs_sitelispdir}/%{name}/
 %{_emacs_sitestartdir}/protobuf-init.el
+%endif
 
 %files static
 %{_libdir}/libprotobuf.a
@@ -391,6 +408,16 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
 
 
 %changelog
+* Tue Oct 22 2024 Adrian Reber <areber@redhat.com> - 3.14.0-16
+- Rebuild
+
+* Mon Jun 17 2024 Adrian Reber <areber@redhat.com> - 3.14.0-15
+- Rebuild
+
+* Mon Jun 17 2024 Adrian Reber <areber@redhat.com> - 3.14.0-14
+- Applied patch for CVE-2022-1941 (#RHEL-40872)
+- Applied patch to make emacs dependency optional (#RHEL-40572)
+
 * Wed Mar 23 2022 Adrian Reber <areber@redhat.com> - 3.14.0-13
 - Rebuilt for test fixes
 
