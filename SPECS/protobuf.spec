@@ -14,7 +14,7 @@
 Summary:        Protocol Buffers - Google's data interchange format
 Name:           protobuf
 Version:        3.5.0
-Release:        15%{?dist}
+Release:        17%{?dist}
 License:        BSD
 URL:            https://github.com/google/protobuf
 Source:         https://github.com/google/protobuf/archive/v%{version}%{?rcver}/%{name}-%{version}%{?rcver}.tar.gz
@@ -26,6 +26,7 @@ Source4:        https://github.com/google/googletest/archive/release-1.7.0.tar.g
 # Might be upstreamable, but for now temporary workaround
 Patch0:         0001-fix-build-on-s390x.patch
 Patch1:         CVE-2021-22570.rhel-8.patch
+Patch2:         0002-fix-__atomic_thread_fence-on-s390x.patch
 
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -422,6 +423,12 @@ install -p -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{emacs_startdir}
 %endif
 
 %changelog
+* Thu Jul 31 2025 Pavol Sloboda <psloboda@redhat.com> - 3.5.0-17
+- Rebuild
+
+* Wed Jul 30 2025 Adrian Reber <areber@redhat.com> - 3.5.0-16
+- Rebuild for changes to test setup
+
 * Mon Mar 21 2022 Adrian Reber <areber@redhat.com> - 3.5.0-15
 - Applied patch for for CVE-2021-22570 (#2050494)
 
