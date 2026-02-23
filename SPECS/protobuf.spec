@@ -9,6 +9,8 @@
 %else
 %bcond_without java
 %endif
+# Build -emacs subpackage
+%bcond_without emacs
 
 #global rcver rc2
 
@@ -19,7 +21,7 @@ Name:           protobuf
 # “patch” updates of protobuf.
 Version:        3.19.6
 %global so_version 30
-Release:        11%{?dist}
+Release:        15%{?dist}
 
 # The entire source is BSD-3-Clause, except the following files, which belong
 # to the build system; are unpackaged maintainer utility scripts; or are used
@@ -83,6 +85,11 @@ Patch3:         protobuf-3.19.4-jre17-add-opens.patch
 #
 #   The PyFrameObject structure members have been removed from the public C API.
 Patch4:         protobuf-3.19.4-python3.11.patch
+# https://github.com/protocolbuffers/protobuf/pull/25239
+# Fix nested Any messages bypassing recursion depth limits (CVE-2026-0994)
+Patch5:         protobuf-3.19-CVE-2026-0994-nested-any-recursion.patch
+# Test for CVE-2026-0994 fix
+Patch6:         protobuf-3.19-CVE-2026-0994-test.patch
 
 # A bundled copy of jsoncpp is included in the conformance tests, but the
 # result is not packaged, so we do not treat it as a formal bundled
@@ -101,7 +108,9 @@ BuildRequires:  libtool
 BuildRequires:  make
 BuildRequires:  gcc-c++
 
+%if %{with emacs}
 BuildRequires:  emacs
+%endif
 BuildRequires:  zlib-devel
 
 %if %{with java}
@@ -267,6 +276,7 @@ Protocol Buffer BOM POM.
 %endif
 %endif
 
+%if %{with emacs}
 %package emacs
 Summary:        Emacs mode for Google Protocol Buffers descriptions
 BuildArch:      noarch
@@ -276,18 +286,17 @@ Obsoletes:      protobuf-emacs-el < 3.6.1-4
 %description emacs
 This package contains syntax highlighting for Google Protocol Buffers
 descriptions in the Emacs editor.
+%endif
 
 %prep
 %setup -q -n protobuf-%{version}%{?rcver} -a 3
-%ifarch %{ix86}
-# IoTest.LargeOutput fails on 32bit arches
 # https://github.com/protocolbuffers/protobuf/issues/8082
 %patch 1 -p1
-# Need to disable more tests that fail on 32bit arches only
 %patch 2 -p0
-%endif
 %patch 3 -p1 -b .jre17
 %patch 4 -p1 -b .python311
+%patch 5 -p1 -b .CVE-2026-0994
+%patch 6 -p1 -b .CVE-2026-0994-test
 
 # Copy in the needed gtest/gmock implementations.
 %setup -q -T -D -b 3 -n protobuf-%{version}%{?rcver}
@@ -352,7 +361,9 @@ export MAVEN_OPTS=-Xmx1024m
 %endif
 %endif
 
+%if %{with emacs}
 %{_emacs_bytecompile} editors/protobuf-mode.el
+%endif
 
 
 %check
@@ -383,11 +394,13 @@ install -p -m 644 -D editors/proto.vim %{buildroot}%{_datadir}/vim/vimfiles/synt
 %endif
 %endif
 
+%if %{with emacs}
 mkdir -p %{buildroot}%{_emacs_sitelispdir}/protobuf
 install -p -m 0644 editors/protobuf-mode.el %{buildroot}%{_emacs_sitelispdir}/protobuf
 install -p -m 0644 editors/protobuf-mode.elc %{buildroot}%{_emacs_sitelispdir}/protobuf
 mkdir -p %{buildroot}%{_emacs_sitestartdir}
 install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
+%endif
 
 %files
 %doc CHANGES.txt CONTRIBUTORS.txt README.md
@@ -409,10 +422,12 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
 %{_libdir}/pkgconfig/protobuf.pc
 %doc examples/add_person.cc examples/addressbook.proto examples/list_people.cc examples/Makefile examples/README.md
 
+%if %{with emacs}
 %files emacs
 %license LICENSE
 %{_emacs_sitelispdir}/protobuf/
 %{_emacs_sitestartdir}/protobuf-init.el
+%endif
 
 %files lite
 %license LICENSE
@@ -473,6 +488,19 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
 
 
 %changelog
+* Mon Jan 26 2026 Adrian Reber <areber@redhat.com> - 3.19.6-15
+- Fix CVE-2026-0994: nested Any messages bypassing recursion depth limits
+
+* Wed Nov 12 2025 Adrian Reber <areber@redhat.com> - 3.19.6-14
+- Disable tests during build that are flaky
+
+* Mon May 26 2025 Adrian Reber <areber@redhat.com> - 3.19.6-13
+- Rebuilt for tests directory
+
+* Thu May 22 2025 François Poirotte <francois.poirotte@cs-soprasteria.com> - 3.19.6-12
+- Copy patch from c9s to make emacs dependency optional
+  Resolves: RHEL-93236
+
 * Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 3.19.6-11
 - Bump release for October 2024 mass rebuild:
   Resolves: RHEL-64018
