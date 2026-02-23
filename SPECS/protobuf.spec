@@ -12,7 +12,7 @@
 Summary:        Protocol Buffers - Google's data interchange format
 Name:           protobuf
 Version:        3.14.0
-Release:        16%{?dist}
+Release:        17%{?dist}
 License:        BSD
 URL:            https://github.com/protocolbuffers/protobuf
 Source:         https://github.com/protocolbuffers/protobuf/archive/v%{version}%{?rcver}/%{name}-%{version}%{?rcver}-all.tar.gz
@@ -33,6 +33,11 @@ Patch2:         CVE-2021-22570.patch
 # https://issues.redhat.com/browse/RHEL-40872
 # Based on https://github.com/protocolbuffers/protobuf/pull/10542.patch
 Patch3:         CVE-2022-1941.patch
+# Fix for CVE-2026-0994: nested Any messages bypassing recursion depth limits
+# https://github.com/protocolbuffers/protobuf/pull/25239
+Patch4:         protobuf-3.14-CVE-2026-0994-nested-any-recursion.patch
+# Test for CVE-2026-0994 fix
+Patch5:         protobuf-3.14-CVE-2026-0994-test.patch
 
 BuildRequires:  make
 BuildRequires:  autoconf
@@ -223,6 +228,8 @@ descriptions in the Emacs editor.
 %patch -P 1 -p1
 %patch -P 2 -p1
 %patch -P 3 -p1
+%patch -P 4 -p1 -b .CVE-2026-0994
+%patch -P 5 -p1 -b .CVE-2026-0994-test
 mv googletest-5ec7f0c4a113e2f18ac2c6cc7df51ad6afc24081/* third_party/googletest/
 find -name \*.cc -o -name \*.h | xargs chmod -x
 chmod 644 examples/*
@@ -408,6 +415,9 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_emacs_sitestartdir}
 
 
 %changelog
+* Mon Jan 26 2026 Adrian Reber <areber@redhat.com> - 3.14.0-17
+- Fix CVE-2026-0994: nested Any messages bypassing recursion depth limits
+
 * Tue Oct 22 2024 Adrian Reber <areber@redhat.com> - 3.14.0-16
 - Rebuild
 
